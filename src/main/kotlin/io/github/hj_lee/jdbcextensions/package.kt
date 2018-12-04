@@ -20,16 +20,29 @@ fun ResultSet.asSequence() =
         else null
     }
 
-fun <T> ResultSet.selectFirst(block: (ResultSet) -> T) = if (this.next()) block(this) else null
+inline fun <T> ResultSet.selectFirst(block: (ResultSet) -> T) = if (this.next()) block(this) else null
 
 fun ResultSet.selectFirst() = this.selectFirst(ResultSet::toAnyList)
 
-fun ResultSet.selectEach(block: (ResultSet) -> Unit) = this.asSequence().forEach(block)
+// Below definitions are concise, but use of sequence is not necessary
+// inline fun ResultSet.selectEach(block: (ResultSet) -> Unit) = this.asSequence().forEach(block)
+// fun <T> ResultSet.selectAll(block: (ResultSet) -> T) = this.asSequence().map(block).toList()
 
-fun <T> ResultSet.selectAll(block: (ResultSet) -> T) = this.asSequence().map(block).toList()
+inline fun ResultSet.selectEach(block: (ResultSet) -> Unit) {
+    while (this.next()) {
+        block(this)
+    }
+}
+
+inline fun <T> ResultSet.selectAll(block: (ResultSet) -> T): List<T> {
+    val list = mutableListOf<T>()
+    while (this.next()) {
+        list += block(this)
+    }
+    return list
+}
 
 fun ResultSet.selectAll() = this.selectAll(ResultSet::toAnyList)
-
 
 ///////////////////////////////////////////////
 
@@ -51,19 +64,19 @@ fun PreparedStatement.select(vararg params: Any?): ResultSet {
 
 fun PreparedStatement.addBatchItem(vararg params: Any?) {
     this.setObjects(*params)
-    return this.addBatch()
+    this.addBatch()
 }
 
-fun <T> PreparedStatement.selectFirst(vararg params: Any?, block: (ResultSet) -> T) =
+inline fun <T> PreparedStatement.selectFirst(vararg params: Any?, block: (ResultSet) -> T) =
     this.select(*params).use { it.selectFirst(block) }
 
 fun PreparedStatement.selectFirst(vararg params: Any?) =
     this.select(*params).use { it.selectFirst() }
 
-fun PreparedStatement.selectEach(vararg params: Any?, block: (ResultSet) -> Unit) =
+inline fun PreparedStatement.selectEach(vararg params: Any?, block: (ResultSet) -> Unit) =
     this.select(*params).use { it.selectEach(block) }
 
-fun <T> PreparedStatement.selectAll(vararg params: Any?, block: (ResultSet) -> T): List<T> =
+inline fun <T> PreparedStatement.selectAll(vararg params: Any?, block: (ResultSet) -> T): List<T> =
     this.select(*params).use { it.selectAll(block) }
 
 fun PreparedStatement.selectAll(vararg params: Any?): List<List<Any?>> =
@@ -74,17 +87,17 @@ fun PreparedStatement.selectAll(vararg params: Any?): List<List<Any?>> =
 
 fun Statement.select(sql: String): ResultSet = this.executeQuery(sql)
 
-fun <T> Statement.selectFirst(sql: String, block: (ResultSet) -> T) =
+inline fun <T> Statement.selectFirst(sql: String, block: (ResultSet) -> T) =
     this.select(sql).use { it.selectFirst(block) }
 
 fun Statement.selectFirst(sql: String) =
     this.select(sql).use { it.selectFirst() }
 
 
-fun Statement.selectEach(sql: String, block: (ResultSet) -> Unit) =
+inline fun Statement.selectEach(sql: String, block: (ResultSet) -> Unit) =
     this.select(sql).use { it.selectEach(block) }
 
-fun <T> Statement.selectAll(sql: String, block: (ResultSet) -> T): List<T> =
+inline fun <T> Statement.selectAll(sql: String, block: (ResultSet) -> T): List<T> =
     this.select(sql).use { it.selectAll(block) }
 
 fun Statement.selectAll(sql: String): List<List<Any?>> =
@@ -92,63 +105,55 @@ fun Statement.selectAll(sql: String): List<List<Any?>> =
 
 ////////////////////////////////////////////////////////////////
 
-private fun <T> Connection.execute(
-    sql: String,
-    params: Array<out Any?>,
-    stmtAction: (Statement) -> T,
-    prepAction: (PreparedStatement) -> T
-) =
-    if (params.isEmpty()) {
-        this.createStatement().use { stmtAction(it) }
-    } else {
-        this.prepareStatement(sql).use { prepAction(it) }
-    }
 
-fun Connection.update(sql: String, vararg params: Any?) =
-    this.execute(sql, params, stmtAction = { it.executeUpdate(sql) }, prepAction = { it.update(*params) })
+inline fun <T> Connection.useStatement(block: (Statement) -> T) = this.createStatement().use(block)
+inline fun <T> Connection.usePreparedStatement(sql: String, block: (PreparedStatement) -> T) =
+    this.prepareStatement(sql).use(block)
 
-fun <T> Connection.selectFirst(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
-    this.execute(
-        sql,
-        params,
-        stmtAction = { it.selectFirst(sql, block) },
-        prepAction = { it.selectFirst(*params, block = block) })
+fun Connection.update(sql: String) = this.useStatement { it.executeUpdate(sql) }
+fun Connection.update(sql: String, vararg params: Any?) = this.usePreparedStatement(sql) { it.update(*params) }
 
+inline fun <T> Connection.selectFirst(sql: String, block: (ResultSet) -> T) =
+    this.useStatement { it.selectFirst(sql, block) }
+
+inline fun <T> Connection.selectFirst(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
+    this.usePreparedStatement(sql) { it.selectFirst(*params, block = block) }
+
+fun Connection.selectFirst(sql: String) = this.useStatement { it.selectFirst(sql) }
 fun Connection.selectFirst(sql: String, vararg params: Any?) =
-    this.execute(sql, params, stmtAction = { it.selectFirst(sql) }, prepAction = { it.selectFirst(*params) })
+    this.usePreparedStatement(sql) { it.selectFirst(*params) }
 
-fun Connection.selectEach(sql: String, vararg params: Any?, block: (ResultSet) -> Unit) =
-    this.execute(
-        sql,
-        params,
-        stmtAction = { it.selectEach(sql, block) },
-        prepAction = { it.selectEach(*params, block = block) })
+inline fun Connection.selectEach(sql: String, block: (ResultSet) -> Unit) =
+    this.useStatement { it.selectEach(sql, block) }
 
-fun <T> Connection.selectAll(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
-    this.execute(
-        sql,
-        params,
-        stmtAction = { it.selectAll(sql, block) },
-        prepAction = { it.selectAll(*params, block = block) })
+inline fun Connection.selectEach(sql: String, vararg params: Any?, block: (ResultSet) -> Unit) =
+    this.usePreparedStatement(sql) { it.selectEach(*params, block = block) }
 
+inline fun <T> Connection.selectAll(sql: String, block: (ResultSet) -> T) =
+    this.useStatement { it.selectAll(sql, block) }
+
+inline fun <T> Connection.selectAll(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
+    this.usePreparedStatement(sql) { it.selectAll(*params, block = block) }
+
+fun Connection.selectAll(sql: String) = this.useStatement { it.selectAll(sql) }
 fun Connection.selectAll(sql: String, vararg params: Any?) =
-    this.execute(sql, params, stmtAction = { it.selectAll(sql) }, prepAction = { it.selectAll(*params) })
+    this.usePreparedStatement(sql) { it.selectAll(*params) }
 
 ////////////////////////////////////////////////////////////////
 
 fun DataSource.update(sql: String, vararg params: Any?) =
     this.connection.use { it.update(sql, *params) }
 
-fun <T> DataSource.selectFirst(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
+inline fun <T> DataSource.selectFirst(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
     this.connection.use { it.selectFirst(sql, *params, block = block) }
 
 fun DataSource.selectFirst(sql: String, vararg params: Any?) =
     this.connection.use { it.selectFirst(sql, *params) }
 
-fun DataSource.selectEach(sql: String, vararg params: Any?, block: (ResultSet) -> Unit) =
+inline fun DataSource.selectEach(sql: String, vararg params: Any?, block: (ResultSet) -> Unit) =
     this.connection.use { it.selectEach(sql, *params, block = block) }
 
-fun <T> DataSource.selectAll(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
+inline fun <T> DataSource.selectAll(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
     this.connection.use { it.selectAll(sql, *params, block = block) }
 
 fun DataSource.selectAll(sql: String, vararg params: Any?) =
