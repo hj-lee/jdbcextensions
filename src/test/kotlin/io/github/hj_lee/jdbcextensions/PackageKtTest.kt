@@ -31,6 +31,23 @@ internal class PackageKtTest {
     }
 
     @Test
+    fun resultSetSelectEach() {
+        var i = 1
+        rs.selectEach {
+            it.getInt(i)
+            i += 1
+        }
+        inOrder(rs) {
+            verify(rs).next()
+            verify(rs).getInt(1)
+            verify(rs).next()
+            verify(rs).getInt(2)
+            verify(rs).next()
+            verifyNoMoreInteractions()
+        }
+    }
+
+    @Test
     fun statementSelectAll() {
         stmt.selectAll("select * from tbl")
         inOrder(stmt, rs) {
