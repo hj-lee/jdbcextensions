@@ -222,4 +222,31 @@ internal class PackageKtTest {
             verifyNoMoreInteractions()
         }
     }
+
+    fun example1() {
+        conn.statement { stmt ->
+            stmt.execute("create table tbl (id number not null primary key, name varchar(64), created_at timestamp")
+        }
+
+        conn.transaction { conn ->
+            conn.prepareStatement("insert into tbl (id, name, created_at) values (?, ?)").use {
+                it.addBatchItem(1, "Alice", java.util.Date())
+                it.addBatchItem(2, "Bob", java.util.Date())
+                it.executeBatch()
+            }
+
+            conn.prepareStatement("insert into tbl (id, name, created_at) values (?, ?)").batch {
+                it.addBatchItem(3, "Alice1", java.util.Date())
+                it.addBatchItem(4, "Bob1", java.util.Date())
+            }
+            conn.commit()
+        }
+        conn.selectAll("select id from tbl") { rs -> rs.getInt("id") }.forEach(::println)
+        conn.selectFirst("select * from tbl where id = ?", 1)
+        conn.selectEach("select * from tbl") { println(it.getInt("id")) }
+        conn.createStatement().executeQuery("select * from tbl order by id").use {
+            it.asSequence().take(2).map { it.getInt(2) }.forEach(::println)
+        }
+    }
 }
+

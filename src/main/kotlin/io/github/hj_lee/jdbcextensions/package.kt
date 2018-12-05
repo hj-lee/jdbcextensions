@@ -169,3 +169,19 @@ inline fun <T> DataSource.useResultSet(sql: String, block: (ResultSet) -> T) =
 
 inline fun <T> DataSource.useResultSet(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
     this.connection.use { it.useResultSet(sql, *params, block = block) }
+
+///////////////////////////////////////////////////////////////////
+
+fun PreparedStatement.batch(block: (PreparedStatement) -> Unit): IntArray? = this.use {
+    block(this)
+    executeBatch()
+}
+
+fun <T> Connection.transaction(block: (Connection) -> T): T {
+    autoCommit = false
+    val result = block(this)
+    autoCommit = true
+    return result
+}
+
+fun <T> Connection.statement(block: (Statement) -> T) = this.createStatement().use(block)
