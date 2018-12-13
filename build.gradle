@@ -2,6 +2,8 @@ plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.3.10'
 }
 
+apply plugin: 'maven'
+
 group 'io.github.hj-lee'
 version '0.1'
 
