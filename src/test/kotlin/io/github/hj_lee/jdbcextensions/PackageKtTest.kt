@@ -136,4 +136,90 @@ internal class PackageKtTest {
             verify(conn).close()
         }
     }
+
+    @Test
+    fun connectionUseResultSet() {
+        conn.useResultSet("select * from tbl") {
+            var i = 1
+            it.asSequence().forEach {
+                it.getInt(i)
+                i += 1
+            }
+        }
+        inOrder(stmt, rs) {
+            verify(rs).next()
+            verify(rs).getInt(1)
+            verify(rs).next()
+            verify(rs).getInt(2)
+            verify(rs).next()
+            verify(rs).close()
+            verify(stmt).close()
+            verifyNoMoreInteractions()
+        }
+    }
+
+    @Test
+    fun dataSourceUseResultSet() {
+        ds.useResultSet("select * from tbl") {
+            var i = 1
+            it.asSequence().forEach {
+                it.getInt(i)
+                i += 1
+            }
+        }
+        inOrder(conn, stmt, rs) {
+            verify(rs).next()
+            verify(rs).getInt(1)
+            verify(rs).next()
+            verify(rs).getInt(2)
+            verify(rs).next()
+            verify(rs).close()
+            verify(stmt).close()
+            verify(conn).close()
+            verifyNoMoreInteractions()
+        }
+    }
+
+    @Test
+    fun connectionUsePreparedResultSet() {
+        conn.useResultSet("select * from tbl where id = ?", 1) {
+            var i = 1
+            it.asSequence().forEach {
+                it.getInt(i)
+                i += 1
+            }
+        }
+        inOrder(pstmt, rs) {
+            verify(rs).next()
+            verify(rs).getInt(1)
+            verify(rs).next()
+            verify(rs).getInt(2)
+            verify(rs).next()
+            verify(rs).close()
+            verify(pstmt).close()
+            verifyNoMoreInteractions()
+        }
+    }
+
+    @Test
+    fun dataSourceUsePreparedResultSet() {
+        ds.useResultSet("select * from tbl where id = ?", 1) {
+            var i = 1
+            it.asSequence().forEach {
+                it.getInt(i)
+                i += 1
+            }
+        }
+        inOrder(conn, pstmt, rs) {
+            verify(rs).next()
+            verify(rs).getInt(1)
+            verify(rs).next()
+            verify(rs).getInt(2)
+            verify(rs).next()
+            verify(rs).close()
+            verify(pstmt).close()
+            verify(conn).close()
+            verifyNoMoreInteractions()
+        }
+    }
 }

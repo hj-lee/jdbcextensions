@@ -8,7 +8,6 @@ import javax.sql.DataSource
 
 ////////////////////////////////////////////
 
-
 fun ResultSet.toAnyList(): List<Any?> =
     (1..this.metaData.columnCount).map {
         this.getObject(it)
@@ -93,7 +92,6 @@ inline fun <T> Statement.selectFirst(sql: String, block: (ResultSet) -> T) =
 fun Statement.selectFirst(sql: String) =
     this.select(sql).use { it.selectFirst() }
 
-
 inline fun Statement.selectEach(sql: String, block: (ResultSet) -> Unit) =
     this.select(sql).use { it.selectEach(block) }
 
@@ -104,7 +102,6 @@ fun Statement.selectAll(sql: String): List<List<Any?>> =
     this.select(sql).use { it.selectAll() }
 
 ////////////////////////////////////////////////////////////////
-
 
 inline fun <T> Connection.useStatement(block: (Statement) -> T) = this.createStatement().use(block)
 inline fun <T> Connection.usePreparedStatement(sql: String, block: (PreparedStatement) -> T) =
@@ -139,6 +136,12 @@ fun Connection.selectAll(sql: String) = this.useStatement { it.selectAll(sql) }
 fun Connection.selectAll(sql: String, vararg params: Any?) =
     this.usePreparedStatement(sql) { it.selectAll(*params) }
 
+inline fun <T> Connection.useResultSet(sql: String, block: (ResultSet) -> T) =
+    this.useStatement { it.select(sql).use(block) }
+
+inline fun <T> Connection.useResultSet(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
+    this.usePreparedStatement(sql) { it.select(*params).use(block) }
+
 ////////////////////////////////////////////////////////////////
 
 fun DataSource.update(sql: String, vararg params: Any?) =
@@ -158,3 +161,9 @@ inline fun <T> DataSource.selectAll(sql: String, vararg params: Any?, block: (Re
 
 fun DataSource.selectAll(sql: String, vararg params: Any?) =
     this.connection.use { it.selectAll(sql, *params) }
+
+inline fun <T> DataSource.useResultSet(sql: String, block: (ResultSet) -> T) =
+    this.connection.use { it.useResultSet(sql, block) }
+
+inline fun <T> DataSource.useResultSet(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
+    this.connection.use { it.useResultSet(sql, *params, block = block) }
