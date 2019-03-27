@@ -21,10 +21,3 @@ dependencies {
     testImplementation 'org.amshove.kluent:kluent:1.40'
     testCompile "com.nhaarman.mockitokotlin2:mockito-kotlin:2.0.0"
 }
-
-compileKotlin {
-    kotlinOptions.jvmTarget = "1.8"
-}
-compileTestKotlin {
-    kotlinOptions.jvmTarget = "1.8"
-}
