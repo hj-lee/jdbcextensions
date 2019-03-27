@@ -1,14 +1,18 @@
-import kotliquery.*
+import io.github.hj_lee.jdbcextensions.selectAll
 import org.junit.Before
 import org.junit.Test
+import java.sql.ResultSet
 import kotlin.test.assertEquals
+
 
 class ExampleTest {
 
     val example = Example()
 
-    val toMember: (Row) -> Member = { row ->
-        Member(row.int("id"), row.stringOrNull("name"), row.zonedDateTime("created_at"))
+    val toMember: (ResultSet) -> Member = { rs ->
+        Member(rs.getInt("id"),
+                rs.getString("name"),
+                rs.getTimestamp("created_at").toLocalDateTime())
     }
 
     @Before
@@ -18,8 +22,8 @@ class ExampleTest {
 
     @Test
     fun sample() {
-        val db = example.session
-        val members: List<Member> = db.run(queryOf("select id, name, created_at from members").map(toMember).asList)
+        val ds = example.ds
+        val members = ds.selectAll("select id, name, created_at from members", block = toMember)
         assertEquals(2, members.size)
     }
 

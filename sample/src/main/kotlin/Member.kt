@@ -1,6 +1,6 @@
-import java.time.ZonedDateTime
+import java.time.LocalDateTime
 
 data class Member(
         val id: Int,
         val name: String?,
-        val createdAt: ZonedDateTime)
+        val createdAt: LocalDateTime)
