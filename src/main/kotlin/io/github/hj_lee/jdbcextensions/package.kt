@@ -149,6 +149,8 @@ inline fun <T> Connection.useResultSet(sql: String, vararg params: Any?, block: 
 fun DataSource.update(sql: String, vararg params: Any?) =
     this.connection.use { it.update(sql, *params) }
 
+fun DataSource.execute(sql: String) = this.connection.use { it.execute(sql) }
+
 inline fun <T> DataSource.selectFirst(sql: String, vararg params: Any?, block: (ResultSet) -> T) =
     this.connection.use { it.selectFirst(sql, *params, block = block) }
 
@@ -172,16 +174,17 @@ inline fun <T> DataSource.useResultSet(sql: String, vararg params: Any?, block: 
 
 ///////////////////////////////////////////////////////////////////
 
-fun PreparedStatement.batch(block: (PreparedStatement) -> Unit): IntArray? = this.use {
+inline fun PreparedStatement.batch(block: (PreparedStatement) -> Unit): IntArray? {
     block(this)
-    executeBatch()
+    return executeBatch()
 }
 
-fun <T> Connection.transaction(block: (Connection) -> T): T {
-    autoCommit = false
-    val result = block(this)
-    autoCommit = true
-    return result
+inline fun <T> Connection.transaction(block: (Connection) -> T): T {
+    try {
+        autoCommit = false
+        return block(this)
+    } finally {
+        autoCommit = true // transaction will be committed if autoCommit hasn't been change by block
+    }
 }
 
-fun <T> Connection.statement(block: (Statement) -> T) = this.createStatement().use(block)

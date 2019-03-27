@@ -1,6 +1,7 @@
 package io.github.hj_lee.jdbcextensions
 
 import com.nhaarman.mockitokotlin2.*
+import junit.framework.Assert.assertEquals
 import org.junit.jupiter.api.Test
 import org.mockito.ArgumentMatchers
 import java.sql.*
@@ -223,29 +224,41 @@ internal class PackageKtTest {
         }
     }
 
+    @Test
     fun example1() {
-        conn.statement { stmt ->
-            stmt.execute("create table tbl (id number not null primary key, name varchar(64), created_at timestamp")
-        }
+        DriverManager.getConnection("jdbc:h2:mem:hello").use { connection ->
+            connection.execute(
+                """create table tbl (
+            | id serial not null primary key,
+            | name varchar(64),
+            | created_at timestamp)""".trimMargin()
+            )
 
-        conn.transaction { conn ->
-            conn.prepareStatement("insert into tbl (id, name, created_at) values (?, ?)").use {
-                it.addBatchItem(1, "Alice", java.util.Date())
-                it.addBatchItem(2, "Bob", java.util.Date())
-                it.executeBatch()
+            connection.transaction {
+                connection.prepareStatement("insert into tbl (name, created_at) values (?, ?)").use {
+                    it.addBatchItem("Alice", java.util.Date())
+                    it.addBatchItem("Bob", java.util.Date())
+                    it.executeBatch()
+                }
+                connection.commit()
+                connection.prepareStatement("insert into tbl (name, created_at) values (?, ?)").batch {
+                    it.addBatchItem("Alice1", java.util.Date())
+                    it.addBatchItem("Bob1", java.util.Date())
+                }
+                connection.rollback()
             }
-
-            conn.prepareStatement("insert into tbl (id, name, created_at) values (?, ?)").batch {
-                it.addBatchItem(3, "Alice1", java.util.Date())
-                it.addBatchItem(4, "Bob1", java.util.Date())
+            assertEquals(listOf(1, 2), connection.selectAll("select id from tbl") { rs -> rs.getInt("id") })
+            assertEquals(listOf("Alice"), connection.selectFirst("select name from tbl where id = ?", 1))
+            val names = listOf("Alice", "Bob")
+            val nameIterator = names.iterator()
+            connection.selectEach("select * from tbl") { resultSet ->
+                assertEquals(nameIterator.next(), resultSet.getString("name"))
             }
-            conn.commit()
-        }
-        conn.selectAll("select id from tbl") { rs -> rs.getInt("id") }.forEach(::println)
-        conn.selectFirst("select * from tbl where id = ?", 1)
-        conn.selectEach("select * from tbl") { println(it.getInt("id")) }
-        conn.createStatement().executeQuery("select * from tbl order by id").use {
-            it.asSequence().take(2).map { it.getInt(2) }.forEach(::println)
+            connection.useResultSet("select * from tbl order by id") { resultSet ->
+                assertEquals(names,
+                    resultSet.asSequence().take(2).map { it.getString(2) }.toList()
+                )
+            }
         }
     }
 }
