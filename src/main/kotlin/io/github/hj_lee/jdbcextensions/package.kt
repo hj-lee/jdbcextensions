@@ -107,6 +107,8 @@ inline fun <T> Connection.useStatement(block: (Statement) -> T) = this.createSta
 inline fun <T> Connection.usePreparedStatement(sql: String, block: (PreparedStatement) -> T) =
     this.prepareStatement(sql).use(block)
 
+fun Connection.execute(sql: String) = this.useStatement { it.execute(sql) }
+
 fun Connection.update(sql: String) = this.useStatement { it.executeUpdate(sql) }
 fun Connection.update(sql: String, vararg params: Any?) = this.usePreparedStatement(sql) { it.update(*params) }
 
