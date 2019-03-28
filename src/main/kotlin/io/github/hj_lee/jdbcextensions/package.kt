@@ -179,6 +179,14 @@ inline fun PreparedStatement.batch(block: (PreparedStatement) -> Unit): IntArray
     return executeBatch()
 }
 
+inline fun Connection.batch(sql: String, block: (PreparedStatement) -> Unit): IntArray? =
+    this.usePreparedStatement(sql) { it.batch(block) }
+
+inline fun DataSource.batch(sql: String, block: (PreparedStatement) -> Unit): IntArray? =
+    this.connection.use { it.batch(sql, block) }
+
+////////////////////////////////////////////////////////////////////
+
 inline fun <T> Connection.transaction(block: (Connection) -> T): T {
     try {
         autoCommit = false
@@ -188,3 +196,5 @@ inline fun <T> Connection.transaction(block: (Connection) -> T): T {
     }
 }
 
+inline fun <T> DataSource.transaction(block: (Connection) -> T): T =
+    this.connection.use(block)
